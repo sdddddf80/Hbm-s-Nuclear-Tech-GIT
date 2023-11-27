@@ -8,6 +8,7 @@ import com.google.gson.stream.JsonWriter;
 import com.hbm.util.BobMathUtil;
 
 import com.hbm.util.I18nUtil;
+import net.minecraft.util.StatCollector;
 import net.minecraft.util.EnumChatFormatting;
 
 public class FT_Combustible extends FluidTrait {
@@ -43,11 +44,11 @@ public class FT_Combustible extends FluidTrait {
 	}
 	
 	public static enum FuelGrade {
-		LOW(I18nUtil.resolveKeyArray("hbmfluid.Trait.Combustible.FuelGrade")[0]),			//heating and industrial oil				< star engine, iGen
-		MEDIUM(I18nUtil.resolveKeyArray("hbmfluid.Trait.Combustible.FuelGrade")[1]),	//petroil									< diesel generator
-		HIGH(I18nUtil.resolveKeyArray("hbmfluid.Trait.Combustible.FuelGrade")[2]),		//diesel, gasoline							< HP engine
-		AERO(I18nUtil.resolveKeyArray("hbmfluid.Trait.Combustible.FuelGrade")[3]),	//kerosene and other light aviation fuels	< turbofan
-		GAS(I18nUtil.resolveKeyArray("hbmfluid.Trait.Combustible.FuelGrade")[4]);		//fuel gasses like NG, PG and syngas		< gas turbine
+		LOW(StatCollector.translateToLocal("hbmfluid.Trait.Combustible.FuelGrade.LOW")),			//heating and industrial oil				< star engine, iGen
+		MEDIUM(StatCollector.translateToLocal("hbmfluid.Trait.Combustible.FuelGrade.MEDIUM")),	//petroil									< diesel generator
+		HIGH(StatCollector.translateToLocal("hbmfluid.Trait.Combustible.FuelGrade.HIGH")),		//diesel, gasoline							< HP engine
+		AERO(StatCollector.translateToLocal("hbmfluid.Trait.Combustible.FuelGrade.AERO")),	//kerosene and other light aviation fuels	< turbofan
+		GAS(StatCollector.translateToLocal("hbmfluid.Trait.Combustible.FuelGrade.GAS"));		//fuel gasses like NG, PG and syngas		< gas turbine
 		
 		private String grade;
 		

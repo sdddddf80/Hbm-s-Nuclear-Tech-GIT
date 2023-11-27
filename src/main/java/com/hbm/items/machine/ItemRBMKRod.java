@@ -14,6 +14,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
 
 public class ItemRBMKRod extends Item {
@@ -223,15 +224,15 @@ public class ItemRBMKRod extends Item {
 	}
 	
 	public static enum EnumBurnFunc {
-		PASSIVE(EnumChatFormatting.DARK_GREEN + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[0]),			//const, no reactivity
-		LOG_TEN(EnumChatFormatting.YELLOW + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[1]),		//log10(x + 1) * reactivity * 50
-		PLATEU(EnumChatFormatting.GREEN + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[2]),					//(1 - e^(-x/25)) * reactivity * 100
-		ARCH(EnumChatFormatting.RED + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[3]),	//x-(x²/1000) * reactivity
-		SIGMOID(EnumChatFormatting.GREEN + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[4]),				//100 / (1 + e^(-(x - 50) / 10)) <- tiny amount of reactivity at x=0 !
-		SQUARE_ROOT(EnumChatFormatting.YELLOW + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[5]),	//sqrt(x) * 10 * reactivity
-		LINEAR(EnumChatFormatting.RED + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[6]),				//x * reactivity
-		QUADRATIC(EnumChatFormatting.RED + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[7]),		//x^2 / 100 * reactivity
-		EXPERIMENTAL(EnumChatFormatting.RED + I18nUtil.resolveKeyArray("trait.rbmk.BurnFunc")[8]);		//x * (sin(x) + 1)
+		PASSIVE(EnumChatFormatting.DARK_GREEN + StatCollector.translateToLocal("trait.rbmk.BurnFunc1")),			//const, no reactivity
+		LOG_TEN(EnumChatFormatting.YELLOW + StatCollector.translateToLocal("trait.rbmk.BurnFunc2")),		//log10(x + 1) * reactivity * 50
+		PLATEU(EnumChatFormatting.GREEN + StatCollector.translateToLocal("trait.rbmk.BurnFunc3")),					//(1 - e^(-x/25)) * reactivity * 100
+		ARCH(EnumChatFormatting.RED + StatCollector.translateToLocal("trait.rbmk.BurnFunc4")),	//x-(x²/1000) * reactivity
+		SIGMOID(EnumChatFormatting.GREEN + StatCollector.translateToLocal("trait.rbmk.BurnFunc5")),				//100 / (1 + e^(-(x - 50) / 10)) <- tiny amount of reactivity at x=0 !
+		SQUARE_ROOT(EnumChatFormatting.YELLOW + StatCollector.translateToLocal("trait.rbmk.BurnFunc6")),	//sqrt(x) * 10 * reactivity
+		LINEAR(EnumChatFormatting.RED + StatCollector.translateToLocal("trait.rbmk.BurnFunc7")),				//x * reactivity
+		QUADRATIC(EnumChatFormatting.RED + StatCollector.translateToLocal("trait.rbmk.BurnFunc8")),		//x^2 / 100 * reactivity
+		EXPERIMENTAL(EnumChatFormatting.RED + StatCollector.translateToLocal("trait.rbmk.BurnFunc9"));		//x * (sin(x) + 1)
 		
 		public String title = "";
 		
