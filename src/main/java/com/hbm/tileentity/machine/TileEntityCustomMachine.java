@@ -6,6 +6,9 @@ import java.util.List;
 import com.hbm.config.CustomMachineConfigJSON;
 import com.hbm.config.CustomMachineConfigJSON.MachineConfiguration;
 import com.hbm.config.CustomMachineConfigJSON.MachineConfiguration.ComponentDefinition;
+import com.hbm.handler.pollution.PollutionHandler;
+import com.hbm.handler.pollution.PollutionHandler.PollutionType;
+import com.hbm.handler.radiation.ChunkRadiationManager;
 import com.hbm.inventory.container.ContainerMachineCustom;
 import com.hbm.inventory.fluid.Fluids;
 import com.hbm.inventory.fluid.tank.FluidTank;
@@ -16,6 +19,7 @@ import com.hbm.lib.Library;
 import com.hbm.module.ModulePatternMatcher;
 import com.hbm.tileentity.IGUIProvider;
 import com.hbm.tileentity.TileEntityMachineBase;
+import com.hbm.tileentity.TileEntityMachinePolluting;
 import com.hbm.tileentity.TileEntityProxyBase;
 import com.hbm.util.Compat;
 import com.hbm.util.fauxpointtwelve.BlockPos;
@@ -35,7 +39,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-public class TileEntityCustomMachine extends TileEntityMachineBase implements IFluidStandardTransceiver, IEnergyUser, IGUIProvider {
+public class TileEntityCustomMachine extends TileEntityMachinePolluting implements IFluidStandardTransceiver, IEnergyUser, IGUIProvider {
 	
 	public String machineType;
 	public MachineConfiguration config;
@@ -60,7 +64,7 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 		 * 10-15: Template
 		 * 16-21: Output
 		 */
-		super(22);
+		super(22,100);
 	}
 	
 	public void init() {
@@ -75,6 +79,9 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 			for(int i = 0; i < outputTanks.length; i++) outputTanks[i] = new FluidTank(Fluids.NONE, config.fluidOutCap);
 			
 			matcher = new ModulePatternMatcher(config.itemInCount);
+			smoke.changeTankSize(config.maxPollutionCap);
+			smoke_leaded.changeTankSize(config.maxPollutionCap);
+			smoke_poison.changeTankSize(config.maxPollutionCap);
 			
 		} else {
 			worldObj.func_147480_a(xCoord, yCoord, zCoord, false);
@@ -117,10 +124,11 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 			for(DirPos pos : this.connectionPos) {
 				if(config.generatorMode && power > 0) this.sendPower(worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
 				for(FluidTank tank : this.outputTanks) if(tank.getFill() > 0) this.sendFluid(tank, worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
+				this.sendSmoke(pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
 			}
 			
 			if(this.structureOK) {
-				
+
 				if(config.generatorMode) {
 					if(this.cachedRecipe == null) {
 						CustomMachineRecipe recipe = this.getMatchingRecipe();
@@ -143,8 +151,25 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 							this.processRecipe(cachedRecipe);
 							this.cachedRecipe = null;
 						}
+						if(worldObj.getTotalWorldTime() % 20 == 0) {
+							if (cachedRecipe.pollutionMode) {
+								if (cachedRecipe.pollutionAmount > 0) {
+									this.pollute(PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType), cachedRecipe.pollutionAmount);
+								} else if (cachedRecipe.pollutionAmount < 0 && PollutionHandler.getPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType))>=-cachedRecipe.pollutionAmount) {
+									PollutionHandler.decrementPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType), -cachedRecipe.pollutionAmount);
+								}
+							}
+							if(cachedRecipe.radiationMode){
+								if (cachedRecipe.radiationAmount > 0){
+									ChunkRadiationManager.proxy.incrementRad(worldObj, xCoord, yCoord, zCoord, cachedRecipe.radiationAmount);
+								}
+								else if(cachedRecipe.radiationAmount < 0){
+									ChunkRadiationManager.proxy.decrementRad(worldObj, xCoord, yCoord, zCoord, -cachedRecipe.radiationAmount);
+								}
+							}
+						}
 					}
-					
+
 				} else {
 					CustomMachineRecipe recipe = this.getMatchingRecipe();
 					
@@ -162,9 +187,27 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 								this.processRecipe(recipe);
 							}
 						}
+						if(worldObj.getTotalWorldTime() % 20 == 0) {
+							if (recipe.pollutionMode) {
+								if (recipe.pollutionAmount > 0) {
+									this.pollute(PollutionHandler.PollutionType.valueOf(recipe.pollutionType), recipe.pollutionAmount);
+								} else if (recipe.pollutionAmount < 0 && PollutionHandler.getPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(recipe.pollutionType))>=-recipe.pollutionAmount) {
+									PollutionHandler.decrementPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(recipe.pollutionType), -recipe.pollutionAmount);
+								}
+							}
+							if(recipe.radiationMode){
+								if (recipe.radiationAmount > 0){
+									ChunkRadiationManager.proxy.incrementRad(worldObj, xCoord, yCoord, zCoord, recipe.radiationAmount);
+								}
+								else if(recipe.radiationAmount < 0){
+									ChunkRadiationManager.proxy.decrementRad(worldObj, xCoord, yCoord, zCoord, -recipe.radiationAmount);
+								}
+							}
+						}
 					} else {
 						this.progress = 0;
 					}
+
 				}
 			} else {
 				this.progress = 0;
@@ -437,7 +480,11 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 
 	@Override
 	public FluidTank[] getSendingTanks() {
-		return outputTanks != null ? outputTanks : new FluidTank[0];
+		FluidTank[] all = new FluidTank[outputTanks.length + this.getSmokeTanks().length];
+		for(int i = 0; i < outputTanks.length; i++) all[i] = outputTanks[i];
+		for(int i = 0; i < this.getSmokeTanks().length; i++) all[outputTanks.length + i] = this.getSmokeTanks()[i];
+		//return outputTanks != null ? outputTanks : new FluidTank[0];
+		return all;
 	}
 
 	@Override
