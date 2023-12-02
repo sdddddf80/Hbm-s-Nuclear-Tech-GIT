@@ -39,6 +39,8 @@ public class CustomMachineRecipes extends SerializableRecipe {
 			recipe.pollutionMode = true;
 			recipe.pollutionType = "SOOT";
 			recipe.pollutionAmount = 0.03f;
+			recipe.radiationMode = false;
+			recipe.radiationAmount = 0;
 			add(recipe);
 		}});
 
