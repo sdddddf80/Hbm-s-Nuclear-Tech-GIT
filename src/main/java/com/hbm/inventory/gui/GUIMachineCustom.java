@@ -68,7 +68,8 @@ public class GUIMachineCustom extends GuiInfoContainer {
 	protected void drawGuiContainerForegroundLayer(int i, int j) {
 		String name = this.custom.getInventoryName();
 		this.fontRendererObj.drawString(name, 68 - this.fontRendererObj.getStringWidth(name) / 2, 6, 4210752);
-		this.fontRendererObj.drawString(I18n.format("container.inventory"), 8, this.ySize - 96 + 2, 4210752);
+		this.fontRendererObj.drawString(I18n.format("container.inventory"), 18, this.ySize - 96 + 2, 4210752);
+		if(custom.config.fluxMode) this.fontRendererObj.drawString("Flux:" + custom.flux,80, 57,4210752);
 	}
 
 	@Override
