@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
+import codechicken.lib.gui.GuiDraw;
 import com.hbm.blocks.ModBlocks;
 import com.hbm.config.CustomMachineConfigJSON;
 import com.hbm.config.CustomMachineConfigJSON.MachineConfiguration;
@@ -52,6 +53,10 @@ public class CustomMachineHandler extends TemplateRecipeHandler {
 		List<PositionedStack> inputs = new ArrayList();
 		PositionedStack machine;
 		List<PositionedStack> outputs = new ArrayList();
+		public int flux = 0;
+		public float radiationAmount = 0;
+		public String pollutionType;
+		public float pollutionAmount = 0;
 		
 		public RecipeSet(CustomMachineRecipe recipe) {
 
@@ -78,7 +83,12 @@ public class CustomMachineHandler extends TemplateRecipeHandler {
 				}
 				outputs.add(new PositionedStack(out, 102 + (i - 3) * 18, 42));
 			}
-			
+			if(recipe.pollutionMode) {
+				this.pollutionType = recipe.pollutionType;
+				this.pollutionAmount = recipe.pollutionAmount;
+			}
+			if(recipe.radiationMode) this.radiationAmount = recipe.radiationAmount;
+			if(conf.fluxMode) this.flux = recipe.flux;
 			this.machine = new PositionedStack(new ItemStack(ModBlocks.custom_machine, 1, 100 + CustomMachineConfigJSON.niceList.indexOf(conf)), 75, 42);
 		}
 
@@ -202,5 +212,22 @@ public class CustomMachineHandler extends TemplateRecipeHandler {
 		if(this.conf == null) return;
 		transferRects.add(new RecipeTransferRect(new Rectangle(65, 23, 36, 18), "ntm_" + conf.unlocalizedName));
 		RecipeTransferRectHandler.registerRectsToGuis(getRecipeTransferRectGuis(), transferRects);
+	}
+	@Override
+	public void drawExtras(int recipe) {
+		RecipeSet Recipe = (RecipeSet) this.arecipes.get(recipe);
+		int side = 94;
+		if(Recipe.radiationAmount != 0){
+			String radiation = "Radiation:" + Recipe.radiationAmount + "";
+			GuiDraw.drawString(radiation, 160 - GuiDraw.fontRenderer.getStringWidth(radiation), 63, 0x08FF00);
+		}
+		if (Recipe.pollutionAmount != 0){
+			String pollution = Recipe.pollutionType + ":" + Recipe.pollutionAmount + "";
+			GuiDraw.drawString(pollution, 160 - GuiDraw.fontRenderer.getStringWidth(pollution), 75, 0x404040);
+		}
+		if(conf.fluxMode) {
+			String flux = "Flux:" + Recipe.flux + "";
+			GuiDraw.drawString(flux, side-GuiDraw.fontRenderer.getStringWidth(flux), 16, 0x08FF00);
+		}
 	}
 }

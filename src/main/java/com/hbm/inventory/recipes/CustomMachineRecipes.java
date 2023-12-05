@@ -36,8 +36,14 @@ public class CustomMachineRecipes extends SerializableRecipe {
 			recipe.outputItems = new Pair[] {new Pair(new ItemStack(Items.paper, 3), 1F)};
 			recipe.duration = 60;
 			recipe.consumptionPerTick = 10;
+			recipe.pollutionMode = true;
+			recipe.pollutionType = "SOOT";
+			recipe.pollutionAmount = 0.03f;
+			recipe.radiationMode = false;
+			recipe.radiationAmount = 0;
 			add(recipe);
 		}});
+
 	}
 
 	@Override
@@ -72,6 +78,13 @@ public class CustomMachineRecipes extends SerializableRecipe {
 			recipeInstance.outputItems = this.readItemStackArrayChance(rec.get("outputItems").getAsJsonArray());
 			recipeInstance.duration = rec.get("duration").getAsInt();
 			recipeInstance.consumptionPerTick = rec.get("consumptionPerTick").getAsInt();
+			recipeInstance.pollutionMode = rec.get("pollutionMode").getAsBoolean();
+			recipeInstance.pollutionType = rec.get("pollutionType").getAsString();
+			recipeInstance.pollutionAmount = rec.get("pollutionAmount").getAsFloat();
+			recipeInstance.radiationMode = rec.get("radiationMode").getAsBoolean();
+			recipeInstance.radiationAmount = rec.get("radiationAmount").getAsFloat();
+			recipeInstance.flux = rec.get("flux").getAsInt();
+
 			list.add(recipeInstance);
 		}
 		
@@ -106,7 +119,13 @@ public class CustomMachineRecipes extends SerializableRecipe {
 
 			writer.name("duration").value(recipeInstance.duration);
 			writer.name("consumptionPerTick").value(recipeInstance.consumptionPerTick);
-			
+			writer.name("pollutionMode").value(recipeInstance.pollutionMode);
+			writer.name("pollutionType").value(recipeInstance.pollutionType);
+			writer.name("pollutionAmount").value(recipeInstance.pollutionAmount);
+			writer.name("radiationMode").value(recipeInstance.radiationMode);
+			writer.name("radiationnAmount").value(recipeInstance.radiationAmount);
+			writer.name("flux").value(recipeInstance.flux);
+
 			writer.endObject();
 		}
 		
@@ -122,6 +141,13 @@ public class CustomMachineRecipes extends SerializableRecipe {
 		
 		public int duration;
 		public int consumptionPerTick;
+		public boolean pollutionMode;
+
+		public String pollutionType;
+		public float pollutionAmount;
+		public boolean radiationMode;
+		public float radiationAmount;
+		public int flux;
 	}
 
 }

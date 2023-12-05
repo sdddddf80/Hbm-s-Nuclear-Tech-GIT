@@ -3,9 +3,13 @@ package com.hbm.tileentity.machine;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.hbm.blocks.ModBlocks;
+import com.hbm.blocks.machine.ReactorResearch;
 import com.hbm.config.CustomMachineConfigJSON;
 import com.hbm.config.CustomMachineConfigJSON.MachineConfiguration;
 import com.hbm.config.CustomMachineConfigJSON.MachineConfiguration.ComponentDefinition;
+import com.hbm.handler.pollution.PollutionHandler;
+import com.hbm.handler.radiation.ChunkRadiationManager;
 import com.hbm.inventory.container.ContainerMachineCustom;
 import com.hbm.inventory.fluid.Fluids;
 import com.hbm.inventory.fluid.tank.FluidTank;
@@ -15,7 +19,7 @@ import com.hbm.inventory.recipes.CustomMachineRecipes.CustomMachineRecipe;
 import com.hbm.lib.Library;
 import com.hbm.module.ModulePatternMatcher;
 import com.hbm.tileentity.IGUIProvider;
-import com.hbm.tileentity.TileEntityMachineBase;
+import com.hbm.tileentity.TileEntityMachinePolluting;
 import com.hbm.tileentity.TileEntityProxyBase;
 import com.hbm.util.Compat;
 import com.hbm.util.fauxpointtwelve.BlockPos;
@@ -35,12 +39,13 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-public class TileEntityCustomMachine extends TileEntityMachineBase implements IFluidStandardTransceiver, IEnergyUser, IGUIProvider {
-	
+public class TileEntityCustomMachine extends TileEntityMachinePolluting implements IFluidStandardTransceiver, IEnergyUser, IGUIProvider {
+
 	public String machineType;
 	public MachineConfiguration config;
-	
+
 	public long power;
+	public int flux;
 	public int progress;
 	public int maxProgress = 1;
 	public FluidTank[] inputTanks;
@@ -49,8 +54,9 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 	public int structureCheckDelay;
 	public boolean structureOK = false;
 	public CustomMachineRecipe cachedRecipe;
-	
+
 	public List<DirPos> connectionPos = new ArrayList();
+	public List<DirPos> fluxPos = new ArrayList();
 
 	public TileEntityCustomMachine() {
 		/*
@@ -60,22 +66,26 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 		 * 10-15: Template
 		 * 16-21: Output
 		 */
-		super(22);
+		super(22, 100);
 	}
-	
+
 	public void init() {
 		MachineConfiguration config = CustomMachineConfigJSON.customMachines.get(this.machineType);
-		
-		if(config != null) {
+
+		if (config != null) {
 			this.config = config;
 
 			inputTanks = new FluidTank[config.fluidInCount];
-			for(int i = 0; i < inputTanks.length; i++) inputTanks[i] = new FluidTank(Fluids.NONE, config.fluidInCap);
+			for (int i = 0; i < inputTanks.length; i++) inputTanks[i] = new FluidTank(Fluids.NONE, config.fluidInCap);
 			outputTanks = new FluidTank[config.fluidOutCount];
-			for(int i = 0; i < outputTanks.length; i++) outputTanks[i] = new FluidTank(Fluids.NONE, config.fluidOutCap);
-			
+			for (int i = 0; i < outputTanks.length; i++)
+				outputTanks[i] = new FluidTank(Fluids.NONE, config.fluidOutCap);
+
 			matcher = new ModulePatternMatcher(config.itemInCount);
-			
+			smoke.changeTankSize(config.maxPollutionCap);
+			smoke_leaded.changeTankSize(config.maxPollutionCap);
+			smoke_poison.changeTankSize(config.maxPollutionCap);
+
 		} else {
 			worldObj.func_147480_a(xCoord, yCoord, zCoord, false);
 		}
@@ -88,100 +98,151 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 
 	@Override
 	public void updateEntity() {
-		
-		if(!worldObj.isRemote) {
-			
-			if(config == null) {
+
+		if (!worldObj.isRemote) {
+
+			if (config == null) {
 				worldObj.func_147480_a(xCoord, yCoord, zCoord, false);
 				return;
 			}
 
 			this.power = Library.chargeTEFromItems(slots, 0, power, this.config.maxPower);
-			
-			if(this.inputTanks.length > 0) this.inputTanks[0].setType(1, slots);
-			if(this.inputTanks.length > 1) this.inputTanks[1].setType(2, slots);
-			if(this.inputTanks.length > 2) this.inputTanks[2].setType(3, slots);
-			
+
+			if (this.inputTanks.length > 0) this.inputTanks[0].setType(1, slots);
+			if (this.inputTanks.length > 1) this.inputTanks[1].setType(2, slots);
+			if (this.inputTanks.length > 2) this.inputTanks[2].setType(3, slots);
+
 			this.structureCheckDelay--;
-			if(this.structureCheckDelay <= 0) this.checkStructure();
-			
-			if(this.worldObj.getTotalWorldTime() % 20 == 0) {
-				for(DirPos pos : this.connectionPos) {
-					for(FluidTank tank : this.inputTanks) {
+			if (this.structureCheckDelay <= 0) this.checkStructure();
+
+			if (this.worldObj.getTotalWorldTime() % 20 == 0) {
+				for (DirPos pos : this.connectionPos) {
+					for (FluidTank tank : this.inputTanks) {
 						this.trySubscribe(tank.getTankType(), worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
 					}
-					if(!config.generatorMode) this.trySubscribe(worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
+					if (!config.generatorMode)
+						this.trySubscribe(worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
 				}
-			}
-			
-			for(DirPos pos : this.connectionPos) {
-				if(config.generatorMode && power > 0) this.sendPower(worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
-				for(FluidTank tank : this.outputTanks) if(tank.getFill() > 0) this.sendFluid(tank, worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
-			}
-			
-			if(this.structureOK) {
-				
-				if(config.generatorMode) {
-					if(this.cachedRecipe == null) {
-						CustomMachineRecipe recipe = this.getMatchingRecipe();
-						if(recipe != null && this.hasRequiredQuantities(recipe) && this.hasSpace(recipe)) {
-							this.cachedRecipe = recipe;
-							this.useUpInput(recipe);
-						}
-					}
-					
-					if(this.cachedRecipe != null) {
-						this.maxProgress = (int) Math.max(cachedRecipe.duration / this.config.recipeSpeedMult, 1);
-						int powerReq = (int) Math.max(cachedRecipe.consumptionPerTick * this.config.recipeConsumptionMult, 1);
-						
-						this.progress++;
-						this.power += powerReq;
-						if(power > config.maxPower) power = config.maxPower;
-						
-						if(progress >= this.maxProgress) {
-							this.progress = 0;
-							this.processRecipe(cachedRecipe);
-							this.cachedRecipe = null;
-						}
-					}
-					
-				} else {
-					CustomMachineRecipe recipe = this.getMatchingRecipe();
-					
-					if(recipe != null) {
-						this.maxProgress = (int) Math.max(recipe.duration / this.config.recipeSpeedMult, 1);
-						int powerReq = (int) Math.max(recipe.consumptionPerTick * this.config.recipeConsumptionMult, 1);
-						
-						if(this.power >= powerReq && this.hasRequiredQuantities(recipe) && this.hasSpace(recipe)) {
-							this.progress++;
-							this.power -= powerReq;
-							
-							if(progress >= this.maxProgress) {
-								this.progress = 0;
-								this.useUpInput(recipe);
-								this.processRecipe(recipe);
+				for (byte d = 2; d < 6; d++) {
+					ForgeDirection dir = ForgeDirection.getOrientation(d);
+					for (DirPos pos : this.fluxPos) {
+						Block b = worldObj.getBlock(pos.getX() + dir.offsetX, pos.getY(), pos.getZ() + dir.offsetZ);
+						if (b == ModBlocks.reactor_research) {
+							int[] source = ((ReactorResearch) ModBlocks.reactor_research).findCore(worldObj, pos.getX() + dir.offsetX, pos.getY(), pos.getZ() + dir.offsetZ);
+							if (source != null) {
+
+								TileEntity tile = worldObj.getTileEntity(source[0], source[1], source[2]);
+
+								if (tile instanceof TileEntityReactorResearch) {
+
+									TileEntityReactorResearch reactor = (TileEntityReactorResearch) tile;
+									this.flux = reactor.totalFlux;
+								}
 							}
 						}
-					} else {
-						this.progress = 0;
 					}
 				}
-			} else {
-				this.progress = 0;
 			}
-			
-			NBTTagCompound data = new NBTTagCompound();
-			data.setString("type", this.machineType);
-			data.setLong("power", power);
-			data.setBoolean("structureOK", structureOK);
-			data.setInteger("progress", progress);
-			data.setInteger("maxProgress", maxProgress);
-			for(int i = 0; i < inputTanks.length; i++) inputTanks[i].writeToNBT(data, "i" + i);
-			for(int i = 0; i < outputTanks.length; i++) outputTanks[i].writeToNBT(data, "o" + i);
-			this.matcher.writeToNBT(data);
-			this.networkPack(data, 50);
+
+		for (DirPos pos : this.connectionPos) {
+			if (config.generatorMode && power > 0)
+				this.sendPower(worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
+			for (FluidTank tank : this.outputTanks)
+				if (tank.getFill() > 0)
+					this.sendFluid(tank, worldObj, pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
+			this.sendSmoke(pos.getX(), pos.getY(), pos.getZ(), pos.getDir());
 		}
+
+		if (this.structureOK) {
+
+			if (config.generatorMode) {
+				if (this.cachedRecipe == null) {
+					CustomMachineRecipe recipe = this.getMatchingRecipe();
+					if (recipe != null && this.hasRequiredQuantities(recipe) && this.hasSpace(recipe)) {
+						this.cachedRecipe = recipe;
+						this.useUpInput(recipe);
+					}
+				}
+
+				if (this.cachedRecipe != null) {
+					this.maxProgress = (int) Math.max(cachedRecipe.duration * (1 - this.gain) / this.config.recipeSpeedMult, 1);
+					int powerReq = (int) Math.max(cachedRecipe.consumptionPerTick * this.config.recipeConsumptionMult, 1);
+
+					this.progress++;
+					this.power += powerReq;
+					if (power > config.maxPower) power = config.maxPower;
+					if (worldObj.getTotalWorldTime() % 20 == 0) {
+						pollution(cachedRecipe);
+						radiation(cachedRecipe);
+					}
+					if (progress >= this.maxProgress) {
+						this.progress = 0;
+						this.processRecipe(cachedRecipe);
+						this.cachedRecipe = null;
+					}
+					if (worldObj.getTotalWorldTime() % 20 == 0) {
+						if (cachedRecipe.pollutionMode) {
+							if (cachedRecipe.pollutionAmount > 0) {
+								this.pollute(PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType), cachedRecipe.pollutionAmount);
+							} else if (cachedRecipe.pollutionAmount < 0 && PollutionHandler.getPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType)) >= -cachedRecipe.pollutionAmount) {
+								PollutionHandler.decrementPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType), -cachedRecipe.pollutionAmount);
+							}
+						}
+						if (cachedRecipe.radiationMode) {
+							if (cachedRecipe.radiationAmount > 0) {
+								ChunkRadiationManager.proxy.incrementRad(worldObj, xCoord, yCoord, zCoord, cachedRecipe.radiationAmount);
+							} else if (cachedRecipe.radiationAmount < 0) {
+								ChunkRadiationManager.proxy.decrementRad(worldObj, xCoord, yCoord, zCoord, -cachedRecipe.radiationAmount);
+							}
+						}
+					}
+				}
+
+			} else {
+				CustomMachineRecipe recipe = this.getMatchingRecipe();
+
+				if (recipe != null) {
+					this.maxProgress = (int) Math.max(recipe.duration * (1 - this.gain) / this.config.recipeSpeedMult, 1);
+					int powerReq = (int) Math.max(recipe.consumptionPerTick * this.config.recipeConsumptionMult, 1);
+
+					if (this.power >= powerReq && this.hasRequiredQuantities(recipe) && this.hasSpace(recipe)) {
+						this.progress++;
+						this.power -= powerReq;
+						if (worldObj.getTotalWorldTime() % 20 == 0) {
+							pollution(recipe);
+							radiation(recipe);
+						}
+						if (progress >= this.maxProgress) {
+							this.progress = 0;
+							this.useUpInput(recipe);
+							this.processRecipe(recipe);
+
+						}
+					}
+				} else {
+					this.progress = 0;
+				}
+
+			}
+		} else {
+			this.progress = 0;
+		}
+
+		NBTTagCompound data = new NBTTagCompound();
+		data.setString("type", this.machineType);
+		data.setLong("power", power);
+		data.setBoolean("structureOK", structureOK);
+		data.setInteger("flux", flux);
+		data.setInteger("progress", progress);
+		data.setInteger("maxProgress", maxProgress);
+		data.setDouble("gain", gain);
+		for (int i = 0; i < inputTanks.length; i++) inputTanks[i].writeToNBT(data, "i" + i);
+		for (int i = 0; i < outputTanks.length; i++) outputTanks[i].writeToNBT(data, "o" + i);
+		this.matcher.writeToNBT(data);
+		this.networkPack(data, 50);
 	}
+
+}
 	
 	/** Only accepts inputs in a fixed order, saves a ton of performance because there's no permutations to check for */
 	public CustomMachineRecipe getMatchingRecipe() {
@@ -204,7 +265,24 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 		
 		return null;
 	}
-	
+	public void pollution(CustomMachineRecipe recipe) {
+		if (recipe.pollutionMode) {
+			if (recipe.pollutionAmount > 0) {
+				this.pollute(PollutionHandler.PollutionType.valueOf(recipe.pollutionType), recipe.pollutionAmount);
+			} else if (recipe.pollutionAmount < 0 && PollutionHandler.getPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(recipe.pollutionType)) >= -recipe.pollutionAmount) {
+				PollutionHandler.decrementPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(recipe.pollutionType), -recipe.pollutionAmount);
+			}
+		}
+	}
+	public void radiation(CustomMachineRecipe recipe){
+		if (recipe.radiationMode) {
+			if (recipe.radiationAmount > 0) {
+				ChunkRadiationManager.proxy.incrementRad(worldObj, xCoord, yCoord, zCoord, recipe.radiationAmount);
+			} else if (recipe.radiationAmount < 0) {
+				ChunkRadiationManager.proxy.decrementRad(worldObj, xCoord, yCoord, zCoord, -recipe.radiationAmount);
+			}
+		}
+	}
 	public boolean hasRequiredQuantities(CustomMachineRecipe recipe) {
 		
 		for(int i = 0; i < recipe.inputFluids.length; i++) {
@@ -214,7 +292,7 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 		for(int i = 0; i < recipe.inputItems.length; i++) {
 			if(slots[i + 4] != null && slots[i + 4].stackSize < recipe.inputItems[i].stacksize) return false;
 		}
-		
+		if(config.fluxMode ? this.flux < recipe.flux : false) return false;
 		return true;
 	}
 	
@@ -302,6 +380,11 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 					this.connectionPos.add(new DirPos(x + facing.offsetX, y + facing.offsetY, z + facing.offsetZ, facing));
 				}
 			}
+			if(worldObj.getBlock(x,y,z) == ModBlocks.cm_flux){
+				for(ForgeDirection facing : ForgeDirection.VALID_DIRECTIONS) {
+					this.fluxPos.add(new DirPos(x + facing.offsetX, y + facing.offsetY, z + facing.offsetZ, facing));
+				}
+			}
 		}
 		
 		for(ForgeDirection facing : ForgeDirection.VALID_DIRECTIONS) {
@@ -369,6 +452,7 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 		
 		this.power = nbt.getLong("power");
 		this.progress = nbt.getInteger("progress");
+		this.flux = nbt.getInteger("flux");
 		this.structureOK = nbt.getBoolean("structureOK");
 		this.maxProgress = nbt.getInteger("maxProgress");
 		for(int i = 0; i < inputTanks.length; i++) inputTanks[i].readFromNBT(nbt, "i" + i);
@@ -437,7 +521,11 @@ public class TileEntityCustomMachine extends TileEntityMachineBase implements IF
 
 	@Override
 	public FluidTank[] getSendingTanks() {
-		return outputTanks != null ? outputTanks : new FluidTank[0];
+		FluidTank[] all = new FluidTank[outputTanks.length + this.getSmokeTanks().length];
+		for(int i = 0; i < outputTanks.length; i++) all[i] = outputTanks[i];
+		for(int i = 0; i < this.getSmokeTanks().length; i++) all[outputTanks.length + i] = this.getSmokeTanks()[i];
+		//return outputTanks != null ? outputTanks : new FluidTank[0];
+		return all;
 	}
 
 	@Override

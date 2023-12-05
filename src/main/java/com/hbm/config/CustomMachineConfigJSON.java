@@ -66,6 +66,8 @@ public class CustomMachineConfigJSON {
 			writer.name("fluidOutCap").value(0);
 			writer.name("itemOutCount").value(1);
 			writer.name("generatorMode").value(false);
+			writer.name("maxPollutionCap").value(100);
+			writer.name("fluxMode").value(true);
 			writer.name("recipeSpeedMult").value(1.0D);
 			writer.name("recipeConsumptionMult").value(1.0D);
 			writer.name("maxPower").value(10_000L);
@@ -127,7 +129,7 @@ public class CustomMachineConfigJSON {
 			
 			writer.endArray();
 			writer.endObject();
-			
+
 			writer.endArray();
 			writer.endObject();
 			writer.close();
@@ -156,6 +158,8 @@ public class CustomMachineConfigJSON {
 				configuration.fluidOutCap = machineObject.get("fluidOutCap").getAsInt();
 				configuration.itemOutCount = machineObject.get("itemOutCount").getAsInt();
 				configuration.generatorMode = machineObject.get("generatorMode").getAsBoolean();
+				configuration.maxPollutionCap = machineObject.get("maxPollutionCap").getAsInt();
+				configuration.fluxMode = machineObject.get("fluxMode").getAsBoolean();
 				configuration.recipeSpeedMult = machineObject.get("recipeSpeedMult").getAsDouble();
 				configuration.recipeConsumptionMult = machineObject.get("recipeConsumptionMult").getAsDouble();
 				configuration.maxPower = machineObject.get("maxPower").getAsLong();
@@ -237,7 +241,8 @@ public class CustomMachineConfigJSON {
 		public int itemOutCount;
 		/** Whether inputs should be used up when the process begins */
 		public boolean generatorMode;
-		
+		public int maxPollutionCap;
+		public boolean fluxMode;
 		public double recipeSpeedMult = 1D;
 		public double recipeConsumptionMult = 1D;
 		public long maxPower;
