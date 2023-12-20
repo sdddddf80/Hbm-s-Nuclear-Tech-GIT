@@ -1,7 +1,9 @@
 package com.hbm.inventory.gui;
 
 import java.util.Arrays;
+import java.util.Locale;
 
+import com.hbm.render.util.GaugeUtil;
 import org.lwjgl.opengl.GL11;
 
 import com.hbm.inventory.SlotPattern;
@@ -35,6 +37,7 @@ public class GUIMachineCustom extends GuiInfoContainer {
 		
 		this.drawElectricityInfo(this, x, y, guiLeft + 150, guiTop + 18, 16, 52, custom.power, custom.config.maxPower);
 
+		if(custom.config.maxHeat>0) this.drawCustomInfoStat(x, y, guiLeft + 61, guiTop + 53, 18, 18, x, y, new String[] { "Heat:" + String.format(Locale.US, "%,d", custom.heat) + " / " + String.format(Locale.US, "%,d", custom.config.maxHeat)});
 		if(this.mc.thePlayer.inventory.getItemStack() == null) {
 			for(int i = 0; i < this.inventorySlots.inventorySlots.size(); ++i) {
 				Slot slot = (Slot) this.inventorySlots.inventorySlots.get(i);
@@ -69,7 +72,7 @@ public class GUIMachineCustom extends GuiInfoContainer {
 		String name = this.custom.getInventoryName();
 		this.fontRendererObj.drawString(name, 68 - this.fontRendererObj.getStringWidth(name) / 2, 6, 4210752);
 		this.fontRendererObj.drawString(I18n.format("container.inventory"), 18, this.ySize - 96 + 2, 4210752);
-		if(custom.config.fluxMode) this.fontRendererObj.drawString("Flux:" + custom.flux,80, 57,4210752);
+		if(custom.config.fluxMode) this.fontRendererObj.drawString("Flux:" + custom.flux,83, 57,0x08FF00);
 	}
 
 	@Override
@@ -77,7 +80,13 @@ public class GUIMachineCustom extends GuiInfoContainer {
 		GL11.glColor4f(1.0F, 1.0F, 1.0F, 1.0F);
 		Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
 		drawTexturedModalRect(guiLeft, guiTop, 0, 0, xSize, ySize);
-		
+		if(custom.config.fluxMode){
+			drawTexturedModalRect(guiLeft + 78, guiTop + 54, 192, 122,51 , 15);
+		}
+		if(custom.maxHeat>0) {
+			drawTexturedModalRect(guiLeft + 61, guiTop + 53, 236,0 , 18, 18);
+			GaugeUtil.drawSmoothGauge(guiLeft + 70, guiTop + 62, this.zLevel, (double) custom.heat / (double) custom.config.maxHeat, 5, 2, 1, 0x7F0000);
+		}
 		int p = custom.progress * 90 / custom.maxProgress;
 		drawTexturedModalRect(guiLeft + 78, guiTop + 119, 192, 0, Math.min(p, 44), 16);
 		if(p > 44) {

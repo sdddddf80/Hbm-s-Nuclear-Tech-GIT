@@ -25,7 +25,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumChatFormatting;
 
-public class CustomMachineHandler extends TemplateRecipeHandler {
+public class CustomMachineHandler extends TemplateRecipeHandler{
 	
 	public LinkedList<RecipeTransferRect> transferRectsRec = new LinkedList<RecipeTransferRect>();
 	public LinkedList<Class<? extends GuiContainer>> guiRec = new LinkedList<Class<? extends GuiContainer>>();
@@ -54,6 +54,7 @@ public class CustomMachineHandler extends TemplateRecipeHandler {
 		PositionedStack machine;
 		List<PositionedStack> outputs = new ArrayList();
 		public int flux = 0;
+		public int heat = 0;
 		public float radiationAmount = 0;
 		public String pollutionType;
 		public float pollutionAmount = 0;
@@ -89,6 +90,7 @@ public class CustomMachineHandler extends TemplateRecipeHandler {
 			}
 			if(recipe.radiationMode) this.radiationAmount = recipe.radiationAmount;
 			if(conf.fluxMode) this.flux = recipe.flux;
+			if(conf.maxHeat>0 && recipe.heat>0) this.heat = recipe.heat;
 			this.machine = new PositionedStack(new ItemStack(ModBlocks.custom_machine, 1, 100 + CustomMachineConfigJSON.niceList.indexOf(conf)), 75, 42);
 		}
 
@@ -216,7 +218,7 @@ public class CustomMachineHandler extends TemplateRecipeHandler {
 	@Override
 	public void drawExtras(int recipe) {
 		RecipeSet Recipe = (RecipeSet) this.arecipes.get(recipe);
-		int side = 94;
+		int side = 83;
 		if(Recipe.radiationAmount != 0){
 			String radiation = "Radiation:" + Recipe.radiationAmount + "";
 			GuiDraw.drawString(radiation, 160 - GuiDraw.fontRenderer.getStringWidth(radiation), 63, 0x08FF00);
@@ -227,7 +229,11 @@ public class CustomMachineHandler extends TemplateRecipeHandler {
 		}
 		if(conf.fluxMode) {
 			String flux = "Flux:" + Recipe.flux + "";
-			GuiDraw.drawString(flux, side-GuiDraw.fontRenderer.getStringWidth(flux), 16, 0x08FF00);
+			GuiDraw.drawString(flux, side - GuiDraw.fontRenderer.getStringWidth(flux) / 2, 16, 0x08FF00);
+		}
+		if(conf.maxHeat>0 && Recipe.heat>0){
+			String heat = "Heat:" + Recipe.heat + "";
+			GuiDraw.drawString(heat, side - GuiDraw.fontRenderer.getStringWidth(heat) / 2, 8, 0xFF0000);
 		}
 	}
 }

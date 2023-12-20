@@ -3,6 +3,7 @@ package com.hbm.tileentity.machine;
 import java.util.ArrayList;
 import java.util.List;
 
+import api.hbm.tile.IHeatSource;
 import com.hbm.blocks.ModBlocks;
 import com.hbm.blocks.machine.ReactorResearch;
 import com.hbm.config.CustomMachineConfigJSON;
@@ -46,6 +47,8 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 
 	public long power;
 	public int flux;
+	public int heat;
+	public int maxHeat;
 	public int progress;
 	public int maxProgress = 1;
 	public FluidTank[] inputTanks;
@@ -57,6 +60,7 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 
 	public List<DirPos> connectionPos = new ArrayList();
 	public List<DirPos> fluxPos = new ArrayList();
+	public List<DirPos> heatPos = new ArrayList();
 
 	public TileEntityCustomMachine() {
 		/*
@@ -80,7 +84,7 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 			outputTanks = new FluidTank[config.fluidOutCount];
 			for (int i = 0; i < outputTanks.length; i++)
 				outputTanks[i] = new FluidTank(Fluids.NONE, config.fluidOutCap);
-
+            maxHeat = config.maxHeat;
 			matcher = new ModulePatternMatcher(config.itemInCount);
 			smoke.changeTankSize(config.maxPollutionCap);
 			smoke_leaded.changeTankSize(config.maxPollutionCap);
@@ -141,6 +145,11 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 							}
 						}
 					}
+					if(config.maxHeat>0){
+						for (DirPos pos : this.heatPos){
+							this.tryPullHeat(pos.getX() + dir.offsetX, pos.getY()-1, pos.getZ() + dir.offsetZ);
+						}
+					}
 				}
 			}
 
@@ -170,6 +179,7 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 
 					this.progress++;
 					this.power += powerReq;
+					this.heat -= cachedRecipe.heat;
 					if (power > config.maxPower) power = config.maxPower;
 					if (worldObj.getTotalWorldTime() % 20 == 0) {
 						pollution(cachedRecipe);
@@ -179,22 +189,6 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 						this.progress = 0;
 						this.processRecipe(cachedRecipe);
 						this.cachedRecipe = null;
-					}
-					if (worldObj.getTotalWorldTime() % 20 == 0) {
-						if (cachedRecipe.pollutionMode) {
-							if (cachedRecipe.pollutionAmount > 0) {
-								this.pollute(PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType), cachedRecipe.pollutionAmount);
-							} else if (cachedRecipe.pollutionAmount < 0 && PollutionHandler.getPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType)) >= -cachedRecipe.pollutionAmount) {
-								PollutionHandler.decrementPollution(worldObj, xCoord, yCoord, zCoord, PollutionHandler.PollutionType.valueOf(cachedRecipe.pollutionType), -cachedRecipe.pollutionAmount);
-							}
-						}
-						if (cachedRecipe.radiationMode) {
-							if (cachedRecipe.radiationAmount > 0) {
-								ChunkRadiationManager.proxy.incrementRad(worldObj, xCoord, yCoord, zCoord, cachedRecipe.radiationAmount);
-							} else if (cachedRecipe.radiationAmount < 0) {
-								ChunkRadiationManager.proxy.decrementRad(worldObj, xCoord, yCoord, zCoord, -cachedRecipe.radiationAmount);
-							}
-						}
 					}
 				}
 
@@ -208,6 +202,7 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 					if (this.power >= powerReq && this.hasRequiredQuantities(recipe) && this.hasSpace(recipe)) {
 						this.progress++;
 						this.power -= powerReq;
+						this.heat -= recipe.heat;
 						if (worldObj.getTotalWorldTime() % 20 == 0) {
 							pollution(recipe);
 							radiation(recipe);
@@ -216,13 +211,11 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 							this.progress = 0;
 							this.useUpInput(recipe);
 							this.processRecipe(recipe);
-
 						}
 					}
 				} else {
 					this.progress = 0;
 				}
-
 			}
 		} else {
 			this.progress = 0;
@@ -233,6 +226,7 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 		data.setLong("power", power);
 		data.setBoolean("structureOK", structureOK);
 		data.setInteger("flux", flux);
+		data.setInteger("heat", heat);
 		data.setInteger("progress", progress);
 		data.setInteger("maxProgress", maxProgress);
 		data.setDouble("gain", gain);
@@ -283,6 +277,25 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 			}
 		}
 	}
+	protected void tryPullHeat(int x, int y, int z) {
+		TileEntity con = worldObj.getTileEntity(x, y, z);
+
+		if(con instanceof IHeatSource) {
+			IHeatSource source = (IHeatSource) con;
+			int diff = source.getHeatStored() - this.heat;
+
+			if(diff == 0) {
+				return;
+			}
+
+			if(diff > 0) {
+				source.useUpHeat(diff);
+				this.heat += diff;
+				if(this.heat > this.maxHeat)
+					this.heat = this.maxHeat;
+			}
+		}
+	}
 	public boolean hasRequiredQuantities(CustomMachineRecipe recipe) {
 		
 		for(int i = 0; i < recipe.inputFluids.length; i++) {
@@ -293,6 +306,7 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 			if(slots[i + 4] != null && slots[i + 4].stackSize < recipe.inputItems[i].stacksize) return false;
 		}
 		if(config.fluxMode ? this.flux < recipe.flux : false) return false;
+		if(config.maxHeat>0 && recipe.heat>0 ? this.heat < recipe.heat : false) return false;
 		return true;
 	}
 	
@@ -385,6 +399,12 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 					this.fluxPos.add(new DirPos(x + facing.offsetX, y + facing.offsetY, z + facing.offsetZ, facing));
 				}
 			}
+			else if(worldObj.getBlock(x,y,z) == ModBlocks.cm_heat){
+				for(ForgeDirection facing : ForgeDirection.VALID_DIRECTIONS) {
+					this.heatPos.add(new DirPos(x + facing.offsetX, y + facing.offsetY, z + facing.offsetZ, facing));
+				}
+			}
+
 		}
 		
 		for(ForgeDirection facing : ForgeDirection.VALID_DIRECTIONS) {
@@ -453,6 +473,7 @@ public class TileEntityCustomMachine extends TileEntityMachinePolluting implemen
 		this.power = nbt.getLong("power");
 		this.progress = nbt.getInteger("progress");
 		this.flux = nbt.getInteger("flux");
+		this.heat = nbt.getInteger("heat");
 		this.structureOK = nbt.getBoolean("structureOK");
 		this.maxProgress = nbt.getInteger("maxProgress");
 		for(int i = 0; i < inputTanks.length; i++) inputTanks[i].readFromNBT(nbt, "i" + i);

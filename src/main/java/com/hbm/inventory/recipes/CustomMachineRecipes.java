@@ -41,6 +41,8 @@ public class CustomMachineRecipes extends SerializableRecipe {
 			recipe.pollutionAmount = 0.03f;
 			recipe.radiationMode = false;
 			recipe.radiationAmount = 0;
+			recipe.flux = 0;
+			recipe.heat = 0;
 			add(recipe);
 		}});
 
@@ -84,6 +86,7 @@ public class CustomMachineRecipes extends SerializableRecipe {
 			recipeInstance.radiationMode = rec.get("radiationMode").getAsBoolean();
 			recipeInstance.radiationAmount = rec.get("radiationAmount").getAsFloat();
 			recipeInstance.flux = rec.get("flux").getAsInt();
+			recipeInstance.heat = rec.get("heat").getAsInt();
 
 			list.add(recipeInstance);
 		}
@@ -125,6 +128,7 @@ public class CustomMachineRecipes extends SerializableRecipe {
 			writer.name("radiationMode").value(recipeInstance.radiationMode);
 			writer.name("radiationnAmount").value(recipeInstance.radiationAmount);
 			writer.name("flux").value(recipeInstance.flux);
+			writer.name("heat").value(recipeInstance.heat);
 
 			writer.endObject();
 		}
@@ -148,6 +152,7 @@ public class CustomMachineRecipes extends SerializableRecipe {
 		public boolean radiationMode;
 		public float radiationAmount;
 		public int flux;
+		public int heat;
 	}
 
 }
