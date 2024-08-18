@@ -6,12 +6,14 @@ import java.util.HashMap;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonWriter;
+import com.hbm.interfaces.IFluidContainer;
 import com.hbm.inventory.FluidContainerRegistry;
 import com.hbm.inventory.container.ContainerMachineDiesel;
 import com.hbm.inventory.fluid.FluidType;
 import com.hbm.inventory.fluid.Fluids;
 import com.hbm.inventory.fluid.tank.FluidTank;
 import com.hbm.inventory.fluid.trait.FT_Combustible;
+import com.hbm.inventory.fluid.trait.FT_Polluting;
 import com.hbm.inventory.fluid.trait.FT_Combustible.FuelGrade;
 import com.hbm.inventory.fluid.trait.FluidTrait.FluidReleaseType;
 import com.hbm.inventory.gui.GUIMachineDiesel;
@@ -36,7 +38,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
-public class TileEntityMachineDiesel extends TileEntityMachinePolluting implements IEnergyProviderMK2, IFluidStandardTransceiver, IConfigurableMachine, IGUIProvider, IInfoProviderEC {
+public class TileEntityMachineDiesel extends TileEntityMachinePolluting implements IEnergyProviderMK2, IFluidContainer, IFluidStandardTransceiver, IConfigurableMachine, IGUIProvider, IInfoProviderEC {
 
 	public long power;
 	public int soundCycle = 0;
@@ -60,7 +62,7 @@ public class TileEntityMachineDiesel extends TileEntityMachinePolluting implemen
 
 	public TileEntityMachineDiesel() {
 		super(5, 100);
-		tank = new FluidTank(Fluids.DIESEL, 4_000);
+		tank = new FluidTank(Fluids.DIESEL, 4_000, 0);
 	}
 
 	@Override
@@ -127,7 +129,6 @@ public class TileEntityMachineDiesel extends TileEntityMachinePolluting implemen
 	public void updateEntity() {
 		
 		if(!worldObj.isRemote) {
-			
 			for(ForgeDirection dir : ForgeDirection.VALID_DIRECTIONS) {
 				this.tryProvide(worldObj, xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ, dir);
 				this.sendSmoke(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ, dir);
@@ -137,6 +138,7 @@ public class TileEntityMachineDiesel extends TileEntityMachinePolluting implemen
 			FluidType last = tank.getTankType();
 			if(tank.setType(3, 4, slots)) this.unsubscribeToAllAround(last, this);
 			tank.loadTank(0, 1, slots);
+			tank.updateTank(xCoord, yCoord, zCoord, worldObj.provider.dimensionId);
 			
 			this.subscribeToAllAround(tank.getTankType(), this);
 
@@ -154,7 +156,6 @@ public class TileEntityMachineDiesel extends TileEntityMachinePolluting implemen
 			NBTTagCompound data = new NBTTagCompound();
 			data.setInteger("power", (int) power);
 			data.setInteger("powerCap", (int) powerCap);
-			tank.writeToNBT(data, "t");
 			this.networkPack(data, 50);
 		}
 	}
@@ -164,7 +165,6 @@ public class TileEntityMachineDiesel extends TileEntityMachinePolluting implemen
 
 		power = data.getInteger("power");
 		powerCap = data.getInteger("powerCap");
-		tank.readFromNBT(data, "t");
 	}
 	
 	public boolean hasAcceptableFuel() {
@@ -193,7 +193,7 @@ public class TileEntityMachineDiesel extends TileEntityMachinePolluting implemen
 	public void generate() {
 		
 		if(hasAcceptableFuel()) {
-			if (tank.getFill() > 0) {
+			if (tank.getFill() > 0 && breatheAir(1)) {
 				
 				if(!shutUp) {
 					if (soundCycle == 0) {
@@ -235,6 +235,16 @@ public class TileEntityMachineDiesel extends TileEntityMachinePolluting implemen
 	@Override
 	public long getMaxPower() {
 		return this.maxPower;
+	}
+
+	@Override
+	public void setFillForSync(int fill, int index) {
+		tank.setFill(fill);
+	}
+
+	@Override
+	public void setTypeForSync(FluidType type, int index) {
+		tank.setTankType(type);
 	}
 
 	@Override

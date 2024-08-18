@@ -1,7 +1,9 @@
 package com.hbm.tileentity.machine;
 
 import com.hbm.handler.CompatHandler;
+import com.hbm.interfaces.IFluidContainer;
 import com.hbm.inventory.container.ContainerCoreReceiver;
+import com.hbm.inventory.fluid.FluidType;
 import com.hbm.inventory.fluid.Fluids;
 import com.hbm.inventory.fluid.tank.FluidTank;
 import com.hbm.inventory.gui.GUICoreReceiver;
@@ -31,7 +33,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 @Optional.InterfaceList({@Optional.Interface(iface = "li.cil.oc.api.network.SimpleComponent", modid = "OpenComputers")})
-public class TileEntityCoreReceiver extends TileEntityMachineBase implements IEnergyProviderMK2, ILaserable, IFluidStandardReceiver, SimpleComponent, IGUIProvider, IInfoProviderEC, CompatHandler.OCComponent {
+public class TileEntityCoreReceiver extends TileEntityMachineBase implements IEnergyProviderMK2, IFluidContainer, ILaserable, IFluidStandardReceiver, SimpleComponent, IGUIProvider, IInfoProviderEC, CompatHandler.OCComponent {
 	
 	public long power;
 	public long joules;
@@ -39,7 +41,7 @@ public class TileEntityCoreReceiver extends TileEntityMachineBase implements IEn
 
 	public TileEntityCoreReceiver() {
 		super(0);
-		tank = new FluidTank(Fluids.CRYOGEL, 64000);
+		tank = new FluidTank(Fluids.CRYOGEL, 64000, 0);
 	}
 
 	@Override
@@ -52,6 +54,7 @@ public class TileEntityCoreReceiver extends TileEntityMachineBase implements IEn
 
 		if (!worldObj.isRemote) {
 			
+			tank.updateTank(xCoord, yCoord, zCoord, worldObj.provider.dimensionId);
 			this.subscribeToAllAround(tank.getTankType(), this);
 			
 			power = joules * 5000;
@@ -71,7 +74,6 @@ public class TileEntityCoreReceiver extends TileEntityMachineBase implements IEn
 
 			NBTTagCompound data = new NBTTagCompound();
 			data.setLong("joules", joules);
-			tank.writeToNBT(data, "t");
 			this.networkPack(data, 50);
 			
 			joules = 0;
@@ -81,7 +83,6 @@ public class TileEntityCoreReceiver extends TileEntityMachineBase implements IEn
 	public void networkUnpack(NBTTagCompound data) {
 		super.networkUnpack(data);
 		joules = data.getLong("joules");
-		tank.readFromNBT(data, "t");
 	}
 
 	@Override
@@ -102,6 +103,16 @@ public class TileEntityCoreReceiver extends TileEntityMachineBase implements IEn
 	@Override
 	public long getMaxPower() {
 		return this.power;
+	}
+
+	@Override
+	public void setFillForSync(int fill, int index) {
+		tank.setFill(fill);
+	}
+
+	@Override
+	public void setTypeForSync(FluidType type, int index) {
+		tank.setTankType(type);
 	}
 
 	@Override

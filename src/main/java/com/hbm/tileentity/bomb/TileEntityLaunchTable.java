@@ -5,6 +5,7 @@ import java.util.List;
 import com.hbm.entity.missile.EntityMissileCustom;
 import com.hbm.handler.CompatHandler;
 import com.hbm.handler.MissileStruct;
+import com.hbm.interfaces.IFluidContainer;
 import com.hbm.inventory.container.ContainerLaunchTable;
 import com.hbm.inventory.fluid.FluidType;
 import com.hbm.inventory.fluid.Fluids;
@@ -19,7 +20,6 @@ import com.hbm.lib.Library;
 import com.hbm.main.MainRegistry;
 import com.hbm.packet.BufPacket;
 import com.hbm.packet.PacketDispatcher;
-import com.hbm.packet.TEMissileMultipartPacket;
 import com.hbm.tileentity.IBufPacketReceiver;
 import com.hbm.tileentity.IGUIProvider;
 import com.hbm.tileentity.IRadarCommandReceiver;
@@ -36,6 +36,7 @@ import io.netty.buffer.ByteBuf;
 import li.cil.oc.api.machine.Arguments;
 import li.cil.oc.api.machine.Callback;
 import li.cil.oc.api.machine.Context;
+import li.cil.oc.api.network.SimpleComponent;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
@@ -52,9 +53,10 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 @Optional.InterfaceList({@Optional.Interface(iface = "li.cil.oc.api.network.SimpleComponent", modid = "OpenComputers")})
-public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISidedInventory, IEnergyReceiverMK2, IFluidStandardReceiver, IGUIProvider, IBufPacketReceiver, IRadarCommandReceiver, CompatHandler.OCComponent {
+public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISidedInventory, IEnergyReceiverMK2, IFluidContainer, IFluidStandardReceiver, IGUIProvider, SimpleComponent, IRadarCommandReceiver, IBufPacketReceiver, CompatHandler.OCComponent {
 
-	private ItemStack slots[];
+	public ItemStack slots[];
+	public ItemStack syncStack;
 
 	public long power;
 	public static final long maxPower = 100000;
@@ -73,8 +75,8 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	public TileEntityLaunchTable() {
 		slots = new ItemStack[8];
 		tanks = new FluidTank[2];
-		tanks[0] = new FluidTank(Fluids.NONE, 100000);
-		tanks[1] = new FluidTank(Fluids.NONE, 100000);
+		tanks[0] = new FluidTank(Fluids.NONE, 100000, 0);
+		tanks[1] = new FluidTank(Fluids.NONE, 100000, 1);
 		padSize = PartSize.SIZE_10;
 		height = 10;
 	}
@@ -183,29 +185,23 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 		if (!worldObj.isRemote) {
 			
 			updateTypes();
-			
 			if(worldObj.getTotalWorldTime() % 20 == 0)
 				this.updateConnections();
 
 			tanks[0].loadTank(2, 6, slots);
 			tanks[1].loadTank(3, 7, slots);
+
+			for (int i = 0; i < 2; i++)
+				tanks[i].updateTank(xCoord, yCoord, zCoord, worldObj.provider.dimensionId);
 			
 			power = Library.chargeTEFromItems(slots, 5, power, maxPower);
 			
 			if(slots[4] != null && slots[4].getItem() == ModItems.rocket_fuel && solid + 250 <= maxSolid) {
-				
 				this.decrStackSize(4, 1);
 				solid += 250;
 			}
-			
-			PacketDispatcher.wrapper.sendToAllAround(new BufPacket(xCoord, yCoord, zCoord, this), new TargetPoint(this.worldObj.provider.dimensionId, xCoord, yCoord, zCoord, 50));
-			
-			MissileStruct multipart = getStruct(slots[0]);
-			
-			if(multipart != null)
-				PacketDispatcher.wrapper.sendToAllAround(new TEMissileMultipartPacket(xCoord, yCoord, zCoord, multipart), new TargetPoint(worldObj.provider.dimensionId, xCoord, yCoord, zCoord, 250));
-			else
-				PacketDispatcher.wrapper.sendToAllAround(new TEMissileMultipartPacket(xCoord, yCoord, zCoord, new MissileStruct()), new TargetPoint(worldObj.provider.dimensionId, xCoord, yCoord, zCoord, 250));
+
+			PacketDispatcher.wrapper.sendToAllAround(new BufPacket(xCoord, yCoord, zCoord, this), new TargetPoint(this.worldObj.provider.dimensionId, xCoord, yCoord, zCoord, 250));
 
 			outer:
 			for(int x = -4; x <= 4; x++) {
@@ -218,7 +214,7 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 				}
 			}
 		} else {
-			
+
 			List<EntityMissileCustom> entities = worldObj.getEntitiesWithinAABB(EntityMissileCustom.class, AxisAlignedBB.getBoundingBox(xCoord - 0.5, yCoord, zCoord - 0.5, xCoord + 1.5, yCoord + 10, zCoord + 1.5));
 			
 			if(!entities.isEmpty()) {
@@ -227,27 +223,10 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 					boolean dir = worldObj.rand.nextBoolean();
 					float moX = (float) (dir ? 0 : worldObj.rand.nextGaussian() * 0.65F);
 					float moZ = (float) (!dir ? 0 : worldObj.rand.nextGaussian() * 0.65F);
-					
 					MainRegistry.proxy.spawnParticle(xCoord + 0.5, yCoord + 0.25, zCoord + 0.5, "launchsmoke", new float[] {moX, 0, moZ});
 				}
 			}
 		}
-	}
-
-	@Override public void serialize(ByteBuf buf) {
-		buf.writeLong(power);
-		buf.writeInt(solid);
-		buf.writeByte((byte) padSize.ordinal());
-		tanks[0].serialize(buf);
-		tanks[1].serialize(buf);
-	}
-	
-	@Override public void deserialize(ByteBuf buf) {
-		this.power = buf.readLong();
-		this.solid = buf.readInt();
-		this.padSize = PartSize.values()[buf.readByte()];
-		tanks[0].deserialize(buf);
-		tanks[1].deserialize(buf);
 	}
 	
 	private void updateConnections() {
@@ -288,7 +267,6 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	}
 	
 	public void launchFromDesignator() {
-
 		if(slots[1] != null && slots[1].getItem() instanceof IDesignatorItem) {
 			IDesignatorItem designator = (IDesignatorItem) slots[1].getItem();
 			
@@ -303,14 +281,12 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	}
 	
 	public void launchTo(int tX, int tZ) {
-
-		worldObj.playSoundEffect(xCoord, yCoord, zCoord, "hbm:weapon.missileTakeOff", 10.0F, 1.0F);
 		
 		ItemCustomMissilePart chip = (ItemCustomMissilePart) Item.getItemById(ItemCustomMissile.readFromNBT(slots[0], "chip"));
 		float c = (Float)chip.attributes[0];
 		float f = 1.0F;
 		
-		if(getStruct(slots[0]).fins != null) {
+		if(ItemCustomMissile.getStruct(slots[0]).fins != null) {
 			ItemCustomMissilePart fins = (ItemCustomMissilePart) Item.getItemById(ItemCustomMissile.readFromNBT(slots[0], "stability"));
 			f = (Float) fins.attributes[0];
 		}
@@ -320,10 +296,11 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 		target.zCoord *= c * f;
 		
 		target.rotateAroundY(worldObj.rand.nextFloat() * 360);
-		
-		EntityMissileCustom missile = new EntityMissileCustom(worldObj, xCoord + 0.5F, yCoord + 2.5F, zCoord + 0.5F, tX + (int)target.xCoord, tZ + (int)target.zCoord, getStruct(slots[0]));
+
+		EntityMissileCustom missile = new EntityMissileCustom(worldObj, xCoord + 0.5F, yCoord + 2.5F, zCoord + 0.5F, tX + (int)target.xCoord, tZ + (int)target.zCoord, ItemCustomMissile.getStruct(slots[0]));
+		worldObj.playSoundEffect(xCoord, yCoord, zCoord, "hbm:weapon.missileTakeOff", 10.0F, 1.0F);
 		worldObj.spawnEntityInWorld(missile);
-		
+
 		subtractFuel();
 		
 		slots[0] = null;
@@ -336,15 +313,14 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	
 	private void subtractFuel() {
 		
-		MissileStruct multipart = getStruct(slots[0]);
+		MissileStruct multipart = ItemCustomMissile.getStruct(slots[0]);
 		
 		if(multipart == null || multipart.fuselage == null)
 			return;
 		
 		ItemCustomMissilePart fuselage = (ItemCustomMissilePart)multipart.fuselage;
 		
-		float f = (Float)fuselage.attributes[1];
-		int fuel = (int)f;
+		int fuel = fuselage.getTankSize();
 		
 		switch((FuelType)fuselage.attributes[0]) {
 			case KEROSENE:
@@ -362,6 +338,9 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 				tanks[0].setFill(tanks[0].getFill() - fuel);
 				tanks[1].setFill(tanks[1].getFill() - fuel);
 				break;
+			case HYDRAZINE:
+				tanks[0].setFill(tanks[0].getFill() - fuel);
+				break;
 			case SOLID:
 				this.solid -= fuel; break;
 			default: break;
@@ -370,35 +349,24 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 		this.power -= maxPower * 0.75;
 	}
 	
-	public static MissileStruct getStruct(ItemStack stack) {
-		
-		return ItemCustomMissile.getStruct(stack);
-	}
-	
 	public boolean isMissileValid() {
-		
-		MissileStruct multipart = getStruct(slots[0]);
-		
-		if(multipart == null || multipart.fuselage == null)
+		MissileStruct missile = ItemCustomMissile.getStruct(slots[0]);
+
+		if(missile == null || missile.fuselage == null)
 			return false;
 		
-		ItemCustomMissilePart fuselage = (ItemCustomMissilePart)multipart.fuselage;
+		ItemCustomMissilePart fuselage = (ItemCustomMissilePart)missile.fuselage;
 		
 		return fuselage.top == padSize;
 	}
 	
 	public boolean hasDesignator() {
-		
-		if(slots[1] != null && slots[1].getItem() instanceof IDesignatorItem && ((IDesignatorItem)slots[1].getItem()).isReady(worldObj, slots[1], xCoord, yCoord, zCoord)) {
-			return true;
-		}
-		
-		return false;
+		return slots[1] != null && slots[1].getItem() instanceof IDesignatorItem && ((IDesignatorItem)slots[1].getItem()).isReady(worldObj, slots[1], xCoord, yCoord, zCoord);
 	}
 	
 	public int solidState() {
 		
-		MissileStruct multipart = getStruct(slots[0]);
+		MissileStruct multipart = ItemCustomMissile.getStruct(slots[0]);
 		
 		if(multipart == null || multipart.fuselage == null)
 			return -1;
@@ -407,7 +375,7 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 		
 		if((FuelType)fuselage.attributes[0] == FuelType.SOLID) {
 			
-			if(solid >= (Float)fuselage.attributes[1])
+			if(solid >= fuselage.getTankSize())
 				return 1;
 			else
 				return 0;
@@ -418,7 +386,7 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	
 	public int liquidState() {
 		
-		MissileStruct multipart = getStruct(slots[0]);
+		MissileStruct multipart = ItemCustomMissile.getStruct(slots[0]);
 		
 		if(multipart == null || multipart.fuselage == null)
 			return -1;
@@ -430,8 +398,9 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 			case HYDROGEN:
 			case XENON:
 			case BALEFIRE:
+			case HYDRAZINE:
 				
-				if(tanks[0].getFill() >= (Float)fuselage.attributes[1])
+				if(tanks[0].getFill() >= fuselage.getTankSize())
 					return 1;
 				else
 					return 0;
@@ -443,7 +412,7 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	
 	public int oxidizerState() {
 		
-		MissileStruct multipart = getStruct(slots[0]);
+		MissileStruct multipart = ItemCustomMissile.getStruct(slots[0]);
 		
 		if(multipart == null || multipart.fuselage == null)
 			return -1;
@@ -455,7 +424,7 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 			case HYDROGEN:
 			case BALEFIRE:
 				
-				if(tanks[1].getFill() >= (Float)fuselage.attributes[1])
+				if(tanks[1].getFill() >= fuselage.getTankSize())
 					return 1;
 				else
 					return 0;
@@ -467,7 +436,7 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	
 	public void updateTypes() {
 		
-		MissileStruct multipart = getStruct(slots[0]);
+		MissileStruct multipart = ItemCustomMissile.getStruct(slots[0]);
 		
 		if(multipart == null || multipart.fuselage == null)
 			return;
@@ -490,8 +459,43 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 				tanks[0].setTankType(Fluids.BALEFIRE);
 				tanks[1].setTankType(Fluids.PEROXIDE);
 				break;
+			case HYDRAZINE:
+				tanks[0].setTankType(Fluids.HYDRAZINE);
+				break;
 			default: break;
 		}
+	}
+
+	@Override
+	public void serialize(ByteBuf buf) {
+		buf.writeInt(solid);
+		buf.writeLong(power);
+		buf.writeInt(padSize.ordinal());
+
+		if(slots[0] != null && slots[0].getItem() instanceof ItemCustomMissile) {
+			buf.writeBoolean(true);
+			MissileStruct missile = ItemCustomMissile.getStruct(slots[0]);
+			missile.writeToByteBuffer(buf);
+		} else {
+			buf.writeBoolean(false);
+		}
+
+		for(int i = 0; i < tanks.length; i++) tanks[i].serialize(buf);
+	}
+
+	@Override
+	public void deserialize(ByteBuf buf) {
+		solid = buf.readInt();
+		power = buf.readLong();
+		padSize = PartSize.values()[buf.readInt()];
+
+		if(buf.readBoolean()) {
+			load = MissileStruct.readFromByteBuffer(buf);
+		} else {
+			load = null;
+		}
+
+		for(int i = 0; i < tanks.length; i++) tanks[i].deserialize(buf);
 	}
 
 	@Override
@@ -504,7 +508,7 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 		solid = nbt.getInteger("solidfuel");
 		power = nbt.getLong("power");
 		padSize = PartSize.values()[nbt.getInteger("padSize")];
-
+		
 		slots = new ItemStack[getSizeInventory()];
 
 		for (int i = 0; i < list.tagCount(); i++) {
@@ -527,7 +531,7 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 		nbt.setInteger("solidfuel", solid);
 		nbt.setLong("power", power);
 		nbt.setInteger("padSize", padSize.ordinal());
-
+		
 		for (int i = 0; i < slots.length; i++) {
 			if (slots[i] != null) {
 				NBTTagCompound nbt1 = new NBTTagCompound();
@@ -552,6 +556,18 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	@Override
 	public boolean canExtractItem(int i, ItemStack itemStack, int j) {
 		return false;
+	}
+
+	@Override
+	public void setFillForSync(int fill, int index) {
+		if (index < 2 && tanks[index] != null)
+			tanks[index].setFill(fill);
+	}
+
+	@Override
+	public void setTypeForSync(FluidType type, int index) {
+		if (index < 2 && tanks[index] != null)
+			tanks[index].setTankType(type);
 	}
 	
 	@Override
@@ -727,4 +743,5 @@ public class TileEntityLaunchTable extends TileEntityLoadedBase implements ISide
 	public GuiScreen provideGUI(int ID, EntityPlayer player, World world, int x, int y, int z) {
 		return new GUIMachineLaunchTable(player.inventory, this);
 	}
+
 }

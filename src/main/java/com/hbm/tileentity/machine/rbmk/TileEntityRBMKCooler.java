@@ -27,9 +27,8 @@ public class TileEntityRBMKCooler extends TileEntityRBMKBase implements IFluidSt
 	public TileEntityRBMKCooler() {
 		super();
 
-		this.tank = new FluidTank(Fluids.CRYOGEL, 8_000);
+		this.tank = new FluidTank(Fluids.CRYOGEL, 8000, 0);
 	}
-
 	@Override
 	public void updateEntity() {
 

@@ -72,7 +72,7 @@ public class RecipesCommon {
 				List<ItemStack> ores = OreDictionary.getOres(((OreDictStack)this).name);
 				
 				for(ItemStack stack : ores) {
-					if(stack.getItem() == comp.item && stack.getItemDamage() == comp.meta)
+					if(stack.getItem() == comp.item && (stack.getItemDamage() == OreDictionary.WILDCARD_VALUE || stack.getItemDamage() == comp.meta))
 						return true;
 				}
 			}
@@ -117,7 +117,6 @@ public class RecipesCommon {
 				return;
 			}
 			this.item = stack.getItem();
-			if(this.item == null) this.item = ModItems.nothing; //i'm going to bash some fuckard's head in
 			this.stacksize = stack.stackSize;
 			this.meta = stack.getItemDamage();
 		}
@@ -129,7 +128,6 @@ public class RecipesCommon {
 		
 		public ComparableStack(Item item) {
 			this.item = item;
-			if(this.item == null) this.item = ModItems.nothing;
 			this.stacksize = 1;
 			this.meta = 0;
 		}
