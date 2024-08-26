@@ -28,7 +28,7 @@ public class GUIMachineRefinery extends GuiInfoContainer {
 		super(new ContainerMachineRefinery(invPlayer, tedf));
 		refinery = tedf;
 		
-		this.xSize = 209;
+		this.xSize = 210;
 		this.ySize = 231;
 	}
 	
@@ -94,16 +94,19 @@ public class GUIMachineRefinery extends GuiInfoContainer {
 			GL11.glColor4f(color.getRed() / 255F, color.getGreen() / 255F, color.getBlue() / 255F, 1F);
 			func_146110_a(guiLeft + 52, guiTop + 63, 247, 1, 33, 48, 350, 256);
 	
+
 			// Naphtha Oil Products
 			color = new Color(recipe.getW().type.getColor());
 			GL11.glColor4f(color.getRed() / 255F, color.getGreen() / 255F, color.getBlue() / 255F, 1F);
 			func_146110_a(guiLeft + 52, guiTop + 32, 247, 50, 66, 52, 350, 256);
 	
+
 			// Light Oil Products
 			color = new Color(recipe.getX().type.getColor());
 			GL11.glColor4f(color.getRed() / 255F, color.getGreen() / 255F, color.getBlue() / 255F, 1F);
 			func_146110_a(guiLeft + 52, guiTop + 24, 247, 145, 86, 35, 350, 256);
 	
+
 			// Gaseous Products
 			color = new Color(recipe.getY().type.getColor());
 			GL11.glColor4f(color.getRed() / 255F, color.getGreen() / 255F, color.getBlue() / 255F, 1F);
@@ -113,6 +116,7 @@ public class GUIMachineRefinery extends GuiInfoContainer {
 			GL11.glDisable(GL11.GL_BLEND);
 		}
 		
+
 
 		// output tanks
 		refinery.tanks[1].renderTank(guiLeft + 86, guiTop + 95, this.zLevel, 16, 52);

@@ -7,6 +7,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.stream.JsonWriter;
 import com.hbm.blocks.ModBlocks;
 import com.hbm.dim.SolarSystem;
+
 import com.hbm.inventory.container.ContainerMachineOilWell;
 import com.hbm.inventory.fluid.Fluids;
 import com.hbm.inventory.gui.GUIMachineOilWell;
@@ -145,6 +146,7 @@ public class TileEntityMachineOilWell extends TileEntityOilDrillBase {
 			if(worldObj.rand.nextDouble() < drainChance) {
 				worldObj.setBlock(x, y, z, ModBlocks.ore_gas_empty, meta, 3);
 			}
+
 		}
 	}
 	
